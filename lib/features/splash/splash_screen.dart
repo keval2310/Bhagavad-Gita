@@ -4,15 +4,19 @@ import 'package:google_fonts/google_fonts.dart';
 import '../auth/login_screen.dart';
 import '../../core/app_theme.dart';
 import '../../core/permission_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/user_provider.dart';
+import '../home/main_navigation_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
   late AnimationController _omRotate;
   late AnimationController _shimmer;
@@ -43,16 +47,27 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _navigateToHome() async {
     await PermissionService.requestAll();
     await Future.delayed(const Duration(milliseconds: 3200));
+
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (_, __, ___) => const LoginScreen(),
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
-        ),
-      );
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        // If already logged in, we should ideally refresh provider but 
+        // for now let's just go to main screen if we have a user
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, __, ___) => const LoginScreen(),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+          ),
+        );
+      }
     }
   }
 

@@ -5,12 +5,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:emotion_gita/models/emotion_state.dart';
 import '../../core/app_theme.dart';
+import '../../core/config.dart';
 import '../../providers/voice_provider.dart';
-import '../gita_counsellor/recommendation_screen.dart';
-import '../../services/gemini_service.dart';
+import 'package:emotion_gita/models/gita_recommendation.dart';
+import 'package:emotion_gita/services/firebase_service.dart';
+import 'package:emotion_gita/features/gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/services/gemini_service.dart';
 
 class VoiceAnalysisScreen extends ConsumerStatefulWidget {
-  const VoiceAnalysisScreen({super.key});
+  final Function(String transcript)? onResult;
+  const VoiceAnalysisScreen({super.key, this.onResult});
 
   @override
   ConsumerState<VoiceAnalysisScreen> createState() =>
@@ -116,7 +120,7 @@ class _VoiceAnalysisScreenState extends ConsumerState<VoiceAnalysisScreen>
 
   Future<void> _seekWisdom() async {
     final state = ref.read(voiceScanProvider);
-    if (state.detectedEmotion == null) return;
+    if (state.transcript.isEmpty) return;
 
     if (!mounted) return;
     showDialog(
@@ -127,21 +131,47 @@ class _VoiceAnalysisScreenState extends ConsumerState<VoiceAnalysisScreen>
       ),
     );
 
-    final gemini = GeminiService('PLACEHOLDER_KEY');
-    final recommendation =
-        await gemini.getRecommendation(state.transcript, state.detectedEmotion!);
+    final gemini = GeminiService(AppConfig.geminiApiKey);
+    final firebase = FirebaseService();
+    
+    List<Map<String, dynamic>> matchedVerses = [];
+    String kaggleContext = "";
+    
+    try {
+      matchedVerses = await firebase.searchVersesFromFirestore(state.transcript, 'Neutral');
+      if (matchedVerses.isNotEmpty) {
+        kaggleContext = "MANDATORY KAGGLE DATASET:\n" + 
+          matchedVerses.take(3).map((v) => "- ${v['Sanskrit Anuvad']}").join('\n');
+      }
+    } catch (_) {}
+
+    GitaRecommendation recommendation;
+    try {
+      recommendation = await gemini.getRecommendation(state.transcript, additionalContext: kaggleContext);
+    } catch (e) {
+      if (matchedVerses.isNotEmpty) {
+        recommendation = GitaRecommendation.fromFirestore(matchedVerses.first);
+      } else {
+        recommendation = GitaRecommendation.placeholder();
+      }
+    }
 
     if (mounted) Navigator.pop(context);
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RecommendationScreen(
-            emotion: state.detectedEmotion!,
-            recommendation: recommendation,
+
+    if (widget.onResult != null) {
+      widget.onResult!(state.transcript);
+    } else {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RecommendationScreen(
+              emotion: EmotionState(primaryEmotion: EmotionType.neutral, confidence: 1.0, trigger: 'Voice Echo'),
+              recommendation: recommendation,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -432,68 +462,12 @@ class _VoiceAnalysisScreenState extends ConsumerState<VoiceAnalysisScreen>
 
                     const SizedBox(height: 20),
 
-                    // ── Emotion Result ─────────────────────────────────────
-                    if (state.isAnalyzing)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(
-                            color: AppTheme.primaryColor),
-                      ),
-
-                    if (state.detectedEmotion != null)
-                      FadeInUp(
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.primaryColor.withOpacity(0.12),
-                                AppTheme.accentColor.withOpacity(0.08),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                                color: AppTheme.primaryColor.withOpacity(0.4)),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                _emojiFor(state.detectedEmotion?.primaryEmotion),
-                                style: const TextStyle(fontSize: 36),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      state.detectedEmotion!.displayName,
-                                      style: GoogleFonts.playfairDisplay(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Confidence: ${(state.detectedEmotion!.confidence * 100).toInt()}%',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 13,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    const SizedBox(height: 20),
 
                     const SizedBox(height: 24),
 
                     // ── Action Buttons ─────────────────────────────────────
-                    if (state.detectedEmotion != null)
+                    if (state.transcript.isNotEmpty)
                       Row(
                         children: [
                           Expanded(

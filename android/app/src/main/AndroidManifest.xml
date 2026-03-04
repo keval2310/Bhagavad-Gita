@@ -6,7 +6,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" />
 
     <application
-        android:label="emotion_gita"
+        android:label="Soul Guide"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

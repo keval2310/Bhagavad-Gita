@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/app_theme.dart';
+import '../emotion_engine/multi_stage_analysis_flow.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -108,6 +109,23 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 
+                const SizedBox(height: 32),
+
+                // NEW: Mandatory Step moved to Home (Dharma)
+                
+                const SizedBox(height: 24),
+                
+                // Section Title: My Journey
+                Text(
+                  'Your Activity Log',
+                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                ),
+                const SizedBox(height: 16),
+                
+                const SizedBox(height: 16),
+                _buildActivityItem('Holistic Analysis', 'Low Stress • Peace • 2m ago', Icons.psychology, AppTheme.primaryColor),
+                _buildActivityItem('Journal Entry', 'Reflecting on Chapter 2 • 1h ago', Icons.edit_note, AppTheme.accentColor),
+                _buildActivityItem('Voice Chanting', 'Sanskrit vibration analysis • 5h ago', Icons.mic, const Color(0xFF3498DB)),
                 const SizedBox(height: 48),
                 Text(
                   'Mood Trend',
@@ -186,6 +204,14 @@ class DashboardScreen extends StatelessWidget {
                     _StatTile(label: 'Stress', value: '30%', icon: Icons.sentiment_dissatisfied, color: AppTheme.accentColor),
                   ],
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _StatTile(label: 'Sacred Verses', value: '700+', icon: Icons.auto_stories, color: const Color(0xFFF1C40F)), // Kaggle data count
+                    const SizedBox(width: 16),
+                    _StatTile(label: 'Adhyays', value: '18', icon: Icons.account_balance, color: const Color(0xFF3498DB)),
+                  ],
+                ),
                 const SizedBox(height: 48),
                 
                 // Daily Motivation
@@ -221,7 +247,38 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildActivityItem(String title, String subtitle, IconData icon, Color color) {
+    return FadeInUp(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: AppTheme.softCardDecoration,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.textPrimary, fontSize: 15)),
+                   Text(subtitle, style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
 
 class _StatTile extends StatelessWidget {
   final String label;

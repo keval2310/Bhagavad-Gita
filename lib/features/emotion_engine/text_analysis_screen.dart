@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/app_theme.dart';
+import 'package:emotion_gita/core/app_theme.dart';
+import 'package:emotion_gita/core/config.dart';
 import 'package:emotion_gita/models/emotion_state.dart';
-import '../../services/gemini_service.dart';
-import '../../models/gita_recommendation.dart';
-import '../gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/services/gemini_service.dart';
+import 'package:emotion_gita/services/firebase_service.dart';
+import 'package:emotion_gita/models/gita_recommendation.dart';
+import 'package:emotion_gita/features/gita_counsellor/recommendation_screen.dart';
 
-class TextAnalysisScreen extends StatefulWidget {
-  const TextAnalysisScreen({super.key});
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:emotion_gita/providers/user_provider.dart';
+
+class TextAnalysisScreen extends ConsumerStatefulWidget {
+  final Function(String text)? onResult;
+  const TextAnalysisScreen({super.key, this.onResult});
 
   @override
-  State<TextAnalysisScreen> createState() => _TextAnalysisScreenState();
+  ConsumerState<TextAnalysisScreen> createState() => _TextAnalysisScreenState();
 }
 
-class _TextAnalysisScreenState extends State<TextAnalysisScreen> {
+class _TextAnalysisScreenState extends ConsumerState<TextAnalysisScreen> {
   final TextEditingController _controller = TextEditingController();
   bool _isAnalyzing = false;
-  final GeminiService _geminiService = GeminiService("PLACEHOLDER_KEY");
+  final GeminiService _geminiService = GeminiService(AppConfig.geminiApiKey);
+  final FirebaseService _firebaseService = FirebaseService();
 
   Future<void> _analyzeThoughts() async {
+    final user = ref.read(userProvider);
+    final userId = user.isLoggedIn ? user.id ?? "anonymous" : "anonymous";
     if (_controller.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -31,54 +40,57 @@ class _TextAnalysisScreenState extends State<TextAnalysisScreen> {
     }
 
     setState(() => _isAnalyzing = true);
-
+    
     try {
-      // In a real app, Gemini would detect this from the text itself.
-      // For now, we use a thoughtful default or mock logic.
-      final text = _controller.text.toLowerCase();
-      EmotionType detected = EmotionType.neutral;
-      
-      if (text.contains('sad') || text.contains('lose') || text.contains('hurt')) {
-        detected = EmotionType.sadness;
-      } else if (text.contains('angry') || text.contains('hate') || text.contains('annoy')) {
-        detected = EmotionType.anger;
-      } else if (text.contains('worried') || text.contains('fear') || text.contains('future')) {
-        detected = EmotionType.anxiety;
-      } else if (text.contains('stress') || text.contains('work') || text.contains('hard')) {
-        detected = EmotionType.stress;
-      } else if (text.contains('happy') || text.contains('joy') || text.contains('great')) {
-        detected = EmotionType.joy;
-      } else if (text.contains('don\'t know') || text.contains('confused')) {
-        detected = EmotionType.confusion;
+      // --- NEW: Kaggle Fallback logic ---
+      List<Map<String, dynamic>> matchedVerses = [];
+      String kaggleContext = "";
+      try {
+        matchedVerses = await _firebaseService.searchVersesFromFirestore(_controller.text, 'Neutral');
+        if (matchedVerses.isNotEmpty) {
+          kaggleContext = "MANDATORY KAGGLE DATASET:\n" + 
+            matchedVerses.take(3).map((v) => "- ${v['Sanskrit Anuvad']}").join('\n');
+        }
+      } catch (_) {}
+
+      GitaRecommendation recommendation;
+      try {
+        recommendation = await _geminiService.getRecommendation(_controller.text, additionalContext: kaggleContext);
+      } catch (e) {
+        if (matchedVerses.isNotEmpty) {
+          recommendation = GitaRecommendation.fromFirestore(matchedVerses.first);
+        } else {
+          recommendation = GitaRecommendation.placeholder();
+        }
       }
 
-      final emotion = EmotionState(
-        primaryEmotion: detected,
-        confidence: 0.85,
-        trigger: 'Heart Reflection',
+      // Async save reflection
+      _firebaseService.saveReflection(
+        userId: userId,
+        content: _controller.text,
+        shlokaRef: recommendation.shlokaNumber,
       );
 
-      final recommendation = await _geminiService.getRecommendation(
-        _controller.text,
-        emotion,
-      );
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RecommendationScreen(
-              emotion: emotion,
-              recommendation: recommendation,
+      if (widget.onResult != null) {
+        widget.onResult!(_controller.text);
+      } else {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RecommendationScreen(
+                emotion: EmotionState(primaryEmotion: EmotionType.neutral, confidence: 1.0, trigger: 'Divine Echo'),
+                recommendation: recommendation,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Analysis failed: $e'),
+            content: const Text('The AI is meditating deeply. Please try again in a moment.'),
             backgroundColor: AppTheme.accentColor,
           ),
         );

@@ -14,9 +14,6 @@ class AppTheme {
   static const Color shimmerGold    = Color(0xFFFFD700); // Pure Gold
   static const Color saffron        = Color(0xFFFF9933); // Saffron Flag
 
-  // Legacy alias used in older files
-  static const Color primaryLight   = Color(0xFFE8C040);
-  static const Color darkBrown      = Color(0xFF0A0C18);
 
   // ── Decoration Helpers ────────────────────────────────────────────────────
   static BoxDecoration get glassDecoration => BoxDecoration(

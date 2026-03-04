@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_web_libraries_in_flutter
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
@@ -7,11 +5,14 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/app_theme.dart';
-import '../../providers/scanning_provider.dart';
+import 'package:emotion_gita/core/app_theme.dart';
+import 'package:emotion_gita/core/config.dart';
+import 'package:emotion_gita/providers/scanning_provider.dart';
 import 'package:emotion_gita/models/emotion_state.dart';
 import 'package:emotion_gita/models/gita_recommendation.dart';
-import '../gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/features/gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/services/gemini_service.dart';
+import 'package:emotion_gita/services/firebase_service.dart';
 
 
 // Web-only imports guarded
@@ -22,7 +23,8 @@ import '../gita_counsellor/recommendation_screen.dart';
 // We handle web camera via camera package (which uses WebRTC)
 
 class FaceScanScreen extends ConsumerStatefulWidget {
-  const FaceScanScreen({super.key});
+  final Function(EmotionState)? onResult;
+  const FaceScanScreen({super.key, this.onResult});
   @override
   ConsumerState<FaceScanScreen> createState() => _FaceScanScreenState();
 }
@@ -196,18 +198,49 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen>
 
     if (!mounted) return;
 
-    // Local lookup is instant, no need for loading dialog
-    final rec = GitaShlokaDB.forEmotion(emotion.primaryEmotion);
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RecommendationScreen(
-          emotion: emotion,
-          recommendation: rec,
-        ),
+    // Dynamic AI lookup
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
       ),
     );
+
+    final gemini = GeminiService(AppConfig.geminiApiKey);
+    final firebase = FirebaseService();
+    
+    GitaRecommendation rec;
+    try {
+      rec = await gemini.getRecommendation("Facial analysis detected: ${emotion.displayName}. Provide guidance.");
+    } catch (e) {
+      debugPrint('AI Error in FaceScan, falling back to Kaggle: $e');
+      // If AI fails, search for the emotion name in our Kaggle dataset
+      final kaggleVerses = await firebase.searchVersesFromFirestore(emotion.displayName, emotion.displayName);
+      if (kaggleVerses.isNotEmpty) {
+        rec = GitaRecommendation.fromFirestore(kaggleVerses.first);
+      } else {
+        rec = GitaRecommendation.placeholder();
+      }
+    }
+
+    if (mounted) Navigator.pop(context);
+
+    if (widget.onResult != null) {
+      widget.onResult!(emotion);
+    } else {
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RecommendationScreen(
+              emotion: emotion,
+              recommendation: rec,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Color _eColor(EmotionType? t) {

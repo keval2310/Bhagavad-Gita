@@ -51,6 +51,10 @@ class FaceScanNotifier extends StateNotifier<FaceScanState> {
   void setError(String? message) {
     state = state.copyWith(errorMessage: message);
   }
+
+  void reset() {
+    state = FaceScanState();
+  }
 }
 
 final faceDetectionServiceProvider = Provider((ref) => FaceDetectionService());

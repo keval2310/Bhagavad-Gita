@@ -4,21 +4,131 @@ import 'package:animate_do/animate_do.dart';
 import '../../core/app_theme.dart';
 import '../home/main_navigation_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/user_provider.dart';
+
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  void _login() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your Divine Credentials.')),
+      );
+      return;
+    }
+
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only @gmail.com IDs are accepted for this journey.'),
+          backgroundColor: AppTheme.accentColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    final success = await ref.read(userProvider.notifier).login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid credentials. Please check if your Soul exists in our records.'),
+            backgroundColor: AppTheme.accentColor,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showRegisterDialog() {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('New Journey', style: GoogleFonts.playfairDisplay(color: AppTheme.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Soul Name')),
+            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Spiritual ID (Email)')),
+            TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Divine Key (Pass)')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailCtrl.text.trim();
+              final pass = passCtrl.text.trim();
+              final name = nameCtrl.text.trim();
+
+              if (name.isEmpty || email.isEmpty || pass.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Fill all details to begin.')),
+                );
+                return;
+              }
+
+              if (!email.toLowerCase().endsWith('@gmail.com')) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Only @gmail.com is allowed.')),
+                );
+                return;
+              }
+
+              final ok = await ref.read(userProvider.notifier).register(email, pass, name);
+              
+              if (!context.mounted) return;
+              
+              if (ok) {
+                Navigator.pop(context); // Close dialog
+                _login(); // Auto-login
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Journey failed to start. Spiritual ID may already exist.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            child: const Text('BEGIN'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -170,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ],
                                 ),
                                 child: Center(
-                                  child: Text(
+                                  child: _isLoading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(
                                     'BEGIN JOURNEY',
                                     style: GoogleFonts.outfit(
                                       color: Colors.white,
@@ -192,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     FadeInUp(
                       delay: const Duration(milliseconds: 800),
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: _showRegisterDialog,
                         child: Text(
                           'SEEK NEW PATH',
                           style: GoogleFonts.outfit(

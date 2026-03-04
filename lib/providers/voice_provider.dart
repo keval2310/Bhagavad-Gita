@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:emotion_gita/models/emotion_state.dart';
 import '../services/voice_analysis_service.dart';
 import '../services/gemini_service.dart';
+import '../core/config.dart';
 
 class VoiceScanState {
   final String transcript;
@@ -59,7 +60,7 @@ class VoiceScanNotifier extends StateNotifier<VoiceScanState> {
 // Assumes GeminiService is already provided or available
 final voiceAnalysisServiceProvider = Provider((ref) {
   // Replace with actual API key logic if needed
-  final gemini = GeminiService("PLACEHOLDER_KEY"); 
+  final gemini = GeminiService(AppConfig.geminiApiKey); 
   return VoiceAnalysisService(gemini);
 });
 

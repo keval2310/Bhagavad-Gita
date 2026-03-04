@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/app_theme.dart';
-import '../emotion_engine/face_scan_screen.dart';
-import '../emotion_engine/text_analysis_screen.dart';
-import '../emotion_engine/voice_analysis_screen.dart';
-import '../gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/core/app_theme.dart';
+import 'package:emotion_gita/features/emotion_engine/face_scan_screen.dart';
+import 'package:emotion_gita/features/emotion_engine/text_analysis_screen.dart';
+import 'package:emotion_gita/features/emotion_engine/voice_analysis_screen.dart';
+import 'package:emotion_gita/features/gita_counsellor/recommendation_screen.dart';
+import 'package:emotion_gita/features/emotion_engine/multi_stage_analysis_flow.dart';
 import 'package:emotion_gita/models/emotion_state.dart';
-import '../../models/gita_recommendation.dart';
+import 'package:emotion_gita/models/gita_recommendation.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:emotion_gita/providers/shloka_provider.dart';
+import 'package:emotion_gita/providers/user_provider.dart';
+import 'package:emotion_gita/features/auth/login_screen.dart';
+
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dailyShloka = ref.watch(dailyShlokaProvider);
+    final user = ref.watch(userProvider);
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Stack(
@@ -48,7 +56,7 @@ class HomeScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'नमो नमः, Soul',
+                              'नमो नमः, ${user.name ?? "Soul"}',
                               style: GoogleFonts.outfit(
                                 color: AppTheme.primaryColor, 
                                 fontSize: 13,
@@ -66,66 +74,165 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: AppTheme.cardColor,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                title: Text('Sign Out', style: GoogleFonts.playfairDisplay(color: AppTheme.textPrimary)),
+                                content: Text('Would you like to end your current journey?', style: GoogleFonts.outfit(color: AppTheme.textSecondary)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('STAY', style: GoogleFonts.outfit(color: AppTheme.textSecondary)),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor),
+                                    onPressed: () {
+                                      ref.read(userProvider.notifier).logout();
+                                      Navigator.of(context).pushAndRemoveUntil(
+                                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                        (route) => false,
+                                      );
+                                    },
+                                    child: const Text('LOGOUT'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                            ),
+                            child: const Icon(Icons.logout_rounded, color: AppTheme.primaryColor, size: 22),
                           ),
-                          child: const Icon(Icons.person_outline_rounded, color: AppTheme.primaryColor, size: 22),
                         ),
                       ],
                     ),
                     const SizedBox(height: 32),
 
                     // Featured Quote Card
-                    FadeInDown(
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: AppTheme.goldCardDecoration,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text('🪷', style: TextStyle(fontSize: 18)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'DAILY DHARMA',
-                                  style: GoogleFonts.outfit(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12,
-                                    letterSpacing: 2,
+                    dailyShloka.when(
+                      data: (rec) => FadeInDown(
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: AppTheme.goldCardDecoration,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('🪷', style: TextStyle(fontSize: 18)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'DAILY DHARMA',
+                                    style: GoogleFonts.outfit(
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 2,
+                                    ),
                                   ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '"${rec.englishTranslation}"',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 18,
+                                  color: AppTheme.textPrimary,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.5,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              '\"Yoga is the journey of the self, through the self, to the self.\"',
-                              style: GoogleFonts.playfairDisplay(
-                                fontSize: 18,
-                                color: AppTheme.textPrimary,
-                                fontStyle: FontStyle.italic,
-                                height: 1.5,
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '- Bhagavad Gita 6.20',
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.primaryColor.withOpacity(0.8),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                              const SizedBox(height: 12),
+                              Text(
+                                '- ${rec.shlokaNumber}',
+                                style: GoogleFonts.outfit(
+                                  color: AppTheme.primaryColor.withOpacity(0.8),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      loading: () => Container(
+                        height: 150,
+                        alignment: Alignment.center,
+                        decoration: AppTheme.glassDecoration,
+                        child: const CircularProgressIndicator(color: AppTheme.primaryColor),
+                      ),
+                      error: (err, stack) => const SizedBox(),
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Detect Mood Button
+                    FadeInUp(
+                      child: GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MultiStageAnalysisFlow()),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
                             ),
-                          ],
+                            borderRadius: BorderRadius.circular(32),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.3),
+                                blurRadius: 25,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                                child: const Icon(Icons.psychology, color: Colors.white, size: 36),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Detect Mood',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Complete 3 Sacred Steps for Guidance',
+                                      style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 20),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                    
                     const SizedBox(height: 40),
 
                     // Section Title
@@ -147,43 +254,23 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Action Cards
+                    // Action Cards replaced by holistic flow
                     FadeInUp(
-                      child: Column(
-                        children: [
-                          _ActionCard(
-                            title: 'Soul Mirror',
-                            subtitle: 'Face scan for emotion',
-                            icon: Icons.face_retouching_natural_rounded,
-                            imageUrl: 'https://images.unsplash.com/photo-1545389336-cf090694435e?q=80&w=400',
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const FaceScanScreen()),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: AppTheme.glassDecoration,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, color: AppTheme.primaryColor),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                'Experience the full journey by clicking the "Detect Mood" button above.',
+                                style: GoogleFonts.outfit(color: AppTheme.textSecondary, fontSize: 13),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _ActionCard(
-                            title: 'Soul Voice',
-                            subtitle: 'Vocal emotional analysis',
-                            icon: Icons.mic_none_rounded,
-                            imageUrl: 'https://images.unsplash.com/photo-1512438248247-f0f2a5a8b7f0?q=80&w=400',
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const VoiceAnalysisScreen()),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _ActionCard(
-                            title: 'Heart Reflection',
-                            subtitle: 'Journal your thoughts',
-                            icon: Icons.auto_stories_outlined,
-                            imageUrl: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=800',
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const TextAnalysisScreen()),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -213,102 +300,3 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final String imageUrl;
-  final VoidCallback onPressed;
-
-  const _ActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.imageUrl,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        height: 120,
-        decoration: AppTheme.softCardDecoration,
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            // Background Image with Gradient
-            Positioned.fill(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppTheme.surfaceColor,
-                      AppTheme.surfaceColor.withOpacity(0.9),
-                      AppTheme.surfaceColor.withOpacity(0.4),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                    ),
-                    child: Icon(icon, color: AppTheme.primaryColor, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.playfairDisplay(
-                            color: AppTheme.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          subtitle,
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, 
-                      color: AppTheme.primaryColor, size: 16),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

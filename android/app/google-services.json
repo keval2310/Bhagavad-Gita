@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "668044338773",
+    "project_id": "bhagavad-gita-52312",
+    "storage_bucket": "bhagavad-gita-52312.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668044338773:android:46e15ab3150a6f9beb56dc",
+        "android_client_info": {
+          "package_name": "com.antigravity.emotion_gita"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "668044338773-1af3rpvu9bgprjt1rmp6p218499btk2e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCg1j4E-BKgqkwVvL-rlTSsWI8R0NWpcW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "668044338773-1af3rpvu9bgprjt1rmp6p218499btk2e.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "668044338773-v0eddbgaiflp9j9o9g6e5v20j2amg02u.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.antigravity.emotionGita"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
