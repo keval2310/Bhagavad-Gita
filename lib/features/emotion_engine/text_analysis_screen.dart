@@ -64,12 +64,14 @@ class _TextAnalysisScreenState extends ConsumerState<TextAnalysisScreen> {
         }
       }
 
-      // Async save reflection
-      _firebaseService.saveReflection(
-        userId: userId,
-        content: _controller.text,
-        shlokaRef: recommendation.shlokaNumber,
-      );
+      // Async save reflection ONLY if this is a standalone screen (no onResult callback)
+      if (widget.onResult == null) {
+        _firebaseService.saveReflection(
+          userId: userId,
+          content: _controller.text,
+          shlokaRef: recommendation.shlokaNumber,
+        );
+      }
 
       if (widget.onResult != null) {
         widget.onResult!(_controller.text);

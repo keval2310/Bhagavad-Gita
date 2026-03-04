@@ -15,17 +15,18 @@ import 'package:emotion_gita/providers/scanning_provider.dart';
 import 'package:emotion_gita/providers/voice_provider.dart';
 import 'package:emotion_gita/services/firebase_service.dart';
 import 'package:emotion_gita/models/gita_recommendation.dart';
+import 'package:emotion_gita/providers/user_provider.dart';
 
 enum FlowStep { overview, face, voice, text, pss, complete }
 
-class MultiStageAnalysisFlow extends StatefulWidget {
+class MultiStageAnalysisFlow extends ConsumerStatefulWidget {
   const MultiStageAnalysisFlow({super.key});
 
   @override
-  State<MultiStageAnalysisFlow> createState() => _MultiStageAnalysisFlowState();
+  ConsumerState<MultiStageAnalysisFlow> createState() => _MultiStageAnalysisFlowState();
 }
 
-class _MultiStageAnalysisFlowState extends State<MultiStageAnalysisFlow> {
+class _MultiStageAnalysisFlowState extends ConsumerState<MultiStageAnalysisFlow> {
   FlowStep _currentStep = FlowStep.overview;
   
   // Results
@@ -41,9 +42,8 @@ class _MultiStageAnalysisFlowState extends State<MultiStageAnalysisFlow> {
     super.initState();
     // Reset any previous scan data when starting a new flow
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final container = ProviderScope.containerOf(context, listen: false);
-      container.read(faceScanProvider.notifier).reset();
-      container.read(voiceScanProvider.notifier).reset();
+      ref.read(faceScanProvider.notifier).reset();
+      ref.read(voiceScanProvider.notifier).reset();
     });
   }
 
@@ -206,6 +206,15 @@ CRITICAL INSTRUCTIONS:
         finalRecommendation = GitaRecommendation.placeholder();
       }
     }
+
+    // --- NEW: Save final Holistic Reflection ---
+    final user = ref.read(userProvider);
+    final userId = user.isLoggedIn ? user.id ?? "anonymous" : "anonymous";
+    await firebaseService.saveReflection(
+      userId: userId,
+      content: _textJournal ?? (_voiceTranscript ?? "Spiritual Consultation"),
+      shlokaRef: finalRecommendation.shlokaNumber,
+    );
 
     if (mounted) Navigator.pop(context); // Close loading dialog
 
